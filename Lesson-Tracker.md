@@ -379,26 +379,39 @@ Learn when to use:
 
 ## Completion Checklist
 
-- [ ] `POST /runs` accepts valid data.
-- [ ] Invalid requests are rejected.
-- [ ] Response data follows a defined schema.
-- [ ] The endpoint returns an appropriate status code.
-- [ ] I understand FastAPI's automatic validation.
+- [x] `POST /runs` accepts valid data.
+- [x] Invalid requests are rejected.
+- [x] Response data follows a defined schema.
+- [x] The endpoint returns an appropriate status code.
+- [x] I understand FastAPI's automatic validation.
 - [ ] I tested the endpoint manually.
 
 ## Lesson Notes
 
 ### What I learned
 
-- 
+- Pydantic models define and validate the expected request structure.
+- FastAPI converts valid JSON into typed Python objects before calling the route.
+- Resource creation should return `201 Created`.
+- Invalid request data produces a `422` validation response.
+- Pytest assertions fail a test when actual behavior does not match the expected behavior.
+- API tests follow Arrange, Act, Assert: prepare a payload, send the request, and verify the response.
+- FastAPI validation errors identify the invalid request location and failed constraint.
 
 ### What confused me
 
-- 
+- The difference between `400 Bad Request` and `422 Unprocessable Entity`.
+- Why request schemas and database models should remain separate.
+- How optional fields and default values affect validation.
 
 ### Validation rules I added
 
-- 
+- Activity IDs must contain between 1 and 255 characters.
+- Distance and duration must be greater than zero.
+- Elevation cannot be negative.
+- Heart rate must be between 30 and 250.
+- Notes cannot exceed 1,000 characters.
+- The starting timestamp must be a valid datetime.
 
 ### Interview takeaway
 
