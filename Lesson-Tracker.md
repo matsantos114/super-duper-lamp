@@ -21,6 +21,127 @@ By the end of the project, you should be able to:
 
 ---
 
+# Current Learning Position — Reviewed September 5, 2026
+
+**Resume at Lesson 3A below: connect the ORM model to SQL and actual database state.**
+
+The purpose remains learning backend engineering through work you can explain and repeat independently. The existing milestone catalog is a reference, not a requirement to complete one large feature every session. This review updates the curriculum; it does not implement the remaining application for you.
+
+## Progress Verified Against the Repository
+
+Review baseline: commit `30598d2`; working tree was clean before this tracker update.
+
+| Area | Evidence observed | What is still unverified or unfinished |
+|---|---|---|
+| Setup and Git | Project dependencies and lock file exist; setup is committed (`a48e305`). | Independent setup from a fresh checkout has not been demonstrated in this review. |
+| HTTP and validation | Health endpoint, typed POST request, field constraints, and 201/422 behavior exist. | POST currently returns the request data; its 201 response does not prove a resource was saved. Earlier self-reported understanding is retained, not newly assessed. |
+| Tests | Three tests pass: health, valid POST, zero-distance rejection. | Other constraints, database writes, migrations, and failure recovery are not covered. |
+| Configuration | `app/config.py` declares a required database URL and local environment-file loading. | Configuration code is present; database availability was not checked. Secret values were not read. |
+| Sessions | `app/database.py` defines the engine, session factory, and a generator that closes the session. | Routes do not use this dependency yet. Request cleanup, transaction ownership, and failure behavior need exercises. |
+| Data model | `app/models.py` declares a primary key, unique external ID, four check constraints, nullable fields, and timestamps. | These are Python declarations. No migration files are present; the actual database schema was not inspected. |
+| Migrations | Alembic is declared as a dependency. | Initialization, migration review, application, and verification remain pending. |
+
+Verification on September 5: `.venv/bin/python -m pytest -q -p no:cacheprovider` → **3 passed**, with one TestClient/httpx deprecation warning. Treat the warning as a later dependency-maintenance exercise; it did not fail these tests. The test run does not establish PostgreSQL connectivity or persistence.
+
+## Course Adjustments
+
+1. **Learn in small, observable steps.** Each session has one concept, one learner-owned change or experiment, and one concrete completion check.
+2. **Test throughout the course.** Bring validation tests into Milestone 2 and database integration tests into Milestone 3. Milestone 12 becomes consolidation and test-design practice.
+3. **Use SQL before relying on ORM automation.** Read a small `CREATE TABLE`, write basic `INSERT`/`SELECT`, and explain `NULL`, keys, and constraints using this project's model.
+4. **Teach the first migration alongside persistence.** Follow 3A → 3B → the initial-migration portion of Milestone 4 → 3D. Return to Milestone 4 later for schema evolution; do not wait until after building persistence to establish migration history.
+5. **Introduce commit, rollback, and duplicate failures with the first write.** Milestones 9–11 later deepen those concepts with concurrency, multi-step transactions, and consistent errors.
+6. **Add abstractions when there is a reason.** Milestone 6 is a refactoring exercise after working behavior exists. A repository layer is a design option to evaluate, not a compulsory wrapper around every query.
+7. **Bring practical habits forward.** Practice environment setup and traceback reading now; add a minimal test CI workflow once database tests are reproducible. Revisit Docker, CI/CD, logging, and security in their full milestones.
+8. **Separate essential skills from specialization.** SQL, HTTP, validation, persistence, testing, ownership checks, debugging, and basic deployment are the core. Queues, imports, caching, specific cloud products, and million-user design come after that core. Progress depends on evidence, not on installing every listed technology.
+
+## Interactive Lesson Format
+
+Suggested session length: 25–45 minutes, adjusted to understanding.
+
+1. **Recall:** explain one prior concept without consulting the implementation.
+2. **Predict:** state what a small experiment will do and why.
+3. **Build or inspect:** make one focused change yourself, or gather evidence without changing code.
+4. **Verify:** compare the prediction with actual output; include a failure case when applicable.
+5. **Review:** discuss correctness, one relevant tradeoff, and the smallest useful improvement.
+6. **Teach back:** explain the behavior in your own words and solve one variation.
+7. **Record:** save evidence, remaining uncertainty, and the exact next task.
+
+Use a hint ladder: question → location/concept → pseudocode → minimal example when needed. Review the learner's attempt before expanding the solution. Avoid introducing several unfamiliar concepts in one response.
+
+Track these separately for each lesson:
+
+- **Implemented:** an artifact or experiment exists.
+- **Verified:** relevant behavior was observed; record the test or output.
+- **Explained:** the learner explains mechanism and a failure case without reading a solution.
+- **Retained:** the learner solves a related problem in a later session.
+
+Code review cannot establish understanding on the learner's behalf. Leave explanation and retention evidence pending until demonstrated. Check a milestone complete only when its required behavior is verified and explained; revisit retention next session.
+
+## Immediate Learning Path
+
+These are separate lessons, not a single implementation assignment.
+
+| Lesson | Focus and learner task | Evidence required before advancing |
+|---|---|---|
+| **3A — Current** | Trace `RunCreate`, `Run`, `Base.metadata`, engine, and session to their roles. Inspect the model and predict whether POST writes anything. | Explain the missing steps between a model declaration and a saved row; identify the primary key, unique constraint, and nullable fields. |
+| 3B | Establish a dedicated local learning database; verify the intended database and run a read-only connectivity query. Learn connection URL components without exposing credentials. | Record successful query and sanitized database identity, or diagnose the exact connection failure. |
+| 3C / Milestone 4 first slice | Initialize Alembic; load model metadata; generate and review the initial migration; apply it to the learning database. | Explain the generated table/constraints in SQL, inspect the resulting schema, and verify a second upgrade has no pending work. |
+| 3D | Insert and retrieve one run using a session before connecting the HTTP route. Predict `add`, `flush`, `commit`, and `rollback`. | A fresh session sees a committed row; a rolled-back write is absent. Explain why flush is not durable commit. |
+| 3E | Connect POST to a request-scoped session and introduce a response schema that includes server-assigned fields. | An isolated PostgreSQL integration test checks 201, returned ID, and the actual stored row. Verify data survives an application restart. |
+| 3F | Trigger a duplicate-ID failure; define the initial API conflict policy and session cleanup. | Duplicate attempt leaves one row; a subsequent valid request succeeds; the error response does not expose internals. |
+
+Before 3E, learn test database separation, dependency overrides, and fixture cleanup. Do not let integration tests use an ordinary development database by accident. Preserve the existing validation tests and adapt repeated activity IDs to isolated test data. A single-request duplicate test is not proof of concurrency safety; that comes in Milestone 9.
+
+Then continue with retrieval/404 and stable pagination (Milestone 5), schema evolution (remaining Milestone 4), and service extraction only as complexity warrants (Milestone 6). Follow with domain calculations and timezones (7–8), reliability depth (9–11), testing consolidation (12), and runner identity/ownership (13). Establish basic authentication/authorization before any public deployment or real user data; then advance through operations and optional integrations.
+
+## Review Questions to Revisit at the Right Time
+
+- **Validation coverage:** only zero distance has a rejection test. Add one boundary case at a time, including duration, optional values, field lengths, and invalid timestamps; learn parametrization when repetition becomes useful.
+- **Time policy:** `RunCreate.started_at` currently uses plain `datetime`, while the ORM column declares timezone support. Decide whether offset-free input is accepted, and prove the chosen policy with tests before persisting timestamps. Database column configuration is not a substitute for an input policy.
+- **Identity scope:** external IDs are currently globally unique. Keep the initial exercise simple, but document that runner/provider-scoped uniqueness must be revisited when multiple users or import providers exist.
+- **Validation versus integrity:** explain why the database repeats positive-distance rules, and inspect which request rules are not database constraints (for example, nonempty external IDs).
+- **Timestamp ownership:** investigate how the existing `updated_at` setting behaves for ORM updates versus direct SQL updates; do not assume all writers update it automatically.
+- **Session ownership:** name who commits and rolls back when the route begins writing. Session cleanup alone is not evidence that successful writes are committed.
+
+## Lesson 3A — First Exercise
+
+**Goal:** explain what currently exists and what must happen before a row can survive a restart.
+
+Read `app/main.py`, `app/models.py`, and `app/database.py`. Without changing application code, answer:
+
+1. Does today's `POST /runs` write to PostgreSQL? Identify the line that supports your answer.
+2. What is the difference between declaring `class Run(Base)` and creating the `runs` table in PostgreSQL?
+3. What separate jobs do a migration and a session perform?
+
+If needed, inspect `Run.__table__` and `Base.metadata.tables` in a Python shell after importing `Run` from `app.models`. This inspects Python metadata; it does not demonstrate that a database table exists. Compare your prediction with what you see.
+
+**Stop point:** discuss your answers before writing migrations or persistence code. The next implementation exercise is 3B once the distinction is clear.
+
+Targeted references: [SQLAlchemy: database metadata](https://docs.sqlalchemy.org/en/20/tutorial/metadata.html) and [Alembic: generating and reviewing migrations](https://alembic.sqlalchemy.org/en/latest/autogenerate.html). Use the relevant sections after making a prediction. Model declarations describe schema; database DDL creates it. Autogenerated migrations are candidates that require human review.
+
+## Session Record — September 5, 2026
+
+- Work completed: repository and lesson review; baseline tests; curriculum resequencing; next exercise prepared.
+- Learner progress newly verified: no new explanation or retention assessment yet.
+- Application changes: none in this review.
+- Database state: not inspected or modified.
+- Current lesson status: 3A assigned; learner response pending.
+- Next action: answer the three 3A questions; review any misconception before moving to 3B.
+
+### Reusable Session Record
+
+- Date / lesson:
+- Prediction:
+- Learner's change or experiment:
+- Verification evidence:
+- Explanation in the learner's words:
+- Hint level needed:
+- Remaining uncertainty:
+- Next-session recall question:
+- Exact next action:
+
+---
+
 # How to Use This Tracker
 
 For each lesson:
@@ -261,7 +382,7 @@ Understand:
 - [x] Dependencies are recorded.
 - [x] `GET /health` returns a successful response.
 - [x] I can explain how the request reaches the route handler.
-- [ ] I committed the setup to Git.
+- [x] I committed the setup to Git. (Verified in history: `a48e305`.)
 
 ## Lesson Notes
 
@@ -524,6 +645,15 @@ Questions:
 - Why is rollback important?
 - What happens when one request accidentally shares a session with another?
 
+## Implementation Evidence — September 5, 2026
+
+- [x] Configuration class is written in `app/config.py`.
+- [x] Engine, session factory, and cleanup generator are written in `app/database.py`.
+- [x] ORM model, constraints, and timestamp declarations are written in `app/models.py`.
+- [ ] I can explain and demonstrate these components working together.
+
+These code-level checks do not complete persistence. Use lessons 3A–3F near the top of this tracker; the runtime checklist below remains pending.
+
 ## Completion Checklist
 
 - [ ] PostgreSQL runs locally.
@@ -545,6 +675,7 @@ Questions:
 
 ### Database decisions
 
+- Observed in code: integer primary key, globally unique external activity ID, nullable optional measurements/notes, named check constraints, and timezone-capable timestamp columns. Rationale and runtime verification remain to be recorded by the learner.
 - 
 
 ### Interview takeaway
@@ -1366,8 +1497,8 @@ Avoid mocking the behavior you actually need to verify.
 
 ## Required Test Cases
 
-- [ ] Create a valid run.
-- [ ] Reject invalid distance.
+- [ ] Create and persist a valid run. (Current request/response test passes; persistence is not covered.)
+- [x] Reject zero distance. (Existing test passes; other invalid-distance boundaries remain to be tested.)
 - [ ] Reject invalid duration.
 - [ ] Reject invalid heart rate.
 - [ ] Retrieve an existing run.
@@ -2290,13 +2421,13 @@ Deliver a 30-minute system-design explanation without relying heavily on notes.
 
 ---
 
-# Cursor Learning Rules
+# AI-Assisted Learning Guidelines
 
-Use Cursor as a mentor, reviewer, and debugger—not as an automatic project generator.
+Use an assistant as a mentor, reviewer, and debugger. These are learning preferences documented for this project; the learner’s current request determines the scope of a session.
 
 ## Good Uses
 
-Ask Cursor to:
+Ask the assistant to:
 
 - Explain a concept.
 - Review code you wrote.
@@ -2310,7 +2441,7 @@ Ask Cursor to:
 
 ## Avoid
 
-Do not ask Cursor to:
+Avoid asking the assistant to:
 
 - Generate the entire application.
 - Replace complete files without explanation.
