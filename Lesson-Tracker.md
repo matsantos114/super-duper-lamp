@@ -23,7 +23,7 @@ By the end of the project, you should be able to:
 
 # Current Learning Position — Reviewed Through September 6, 2026
 
-**Resume at Lesson 3D: use a SQLAlchemy session to insert, commit, and retrieve the first run outside the HTTP route.**
+**Resume at Lesson 3E: design the conversion from validated `RunCreate` input to a persisted `Run` and a database-backed response.**
 
 The purpose remains learning backend engineering through work you can explain and repeat independently. The existing milestone catalog is a reference, not a requirement to complete one large feature every session. This review updates the curriculum; it does not implement the remaining application for you.
 
@@ -88,8 +88,8 @@ These are separate lessons, not a single implementation assignment.
 | **3A — Explained** | Trace `RunCreate`, `Run`, `Base.metadata`, engine, and session to their roles. Inspect the model and predict whether POST writes anything. | Learner explained that POST currently returns the request without passing it to persistence; the model declares the intended table; a missing table causes a database error when SQL is sent. Retention check remains. |
 | **3B — Explained** | Establish a dedicated local learning database; verify the intended database and run read-only connectivity/schema queries. Learn connection URL components without exposing credentials. | Connectivity to `localhost:5432/running_app` was verified. `inspect(engine).get_table_names()` returned `[]`. Learner recognized that a separate schema-changing action is required and raised migration versus seeding for clarification. Retention check remains. |
 | **3C — Complete** | Initialize Alembic; load model metadata; generate and review the initial migration; apply it to the learning database. | Revision `3f7d9083d2ce` was generated, reviewed, recovered after a syntax-error exercise, and applied. `alembic current` reports head; inspection returns `alembic_version` and `runs`. Learner explained first-revision, upgrade, and downgrade responsibilities. Retention check remains. |
-| **3D — Current** | Insert and retrieve one run using a session before connecting the HTTP route. Predict `add`, `flush`, `commit`, and `rollback`. | A fresh session sees a committed row; a rolled-back write is absent. Explain why flush is not durable commit. |
-| 3E | Connect POST to a request-scoped session and introduce a response schema that includes server-assigned fields. | An isolated PostgreSQL integration test checks 201, returned ID, and the actual stored row. Verify data survives an application restart. |
+| **3D — Complete** | Insert and retrieve one run using a session before connecting the HTTP route. Predict `add`, `flush`, `commit`, and `rollback`. | Learner created, added, flushed, committed, retrieved, and rolled back runs. Explained commit as the lasting save, flush as sending work within an open transaction, and rollback as canceling uncommitted work. Retention check remains. |
+| **3E — Current** | Connect POST to a request-scoped session and introduce a response schema that includes server-assigned fields. | An isolated PostgreSQL integration test checks 201, returned ID, and the actual stored row. Verify data survives an application restart. |
 | 3F | Trigger a duplicate-ID failure; define the initial API conflict policy and session cleanup. | Duplicate attempt leaves one row; a subsequent valid request succeeds; the error response does not expose internals. |
 
 Before 3E, learn test database separation, dependency overrides, and fixture cleanup. Do not let integration tests use an ordinary development database by accident. Preserve the existing validation tests and adapt repeated activity IDs to isolated test data. A single-request duplicate test is not proof of concurrency safety; that comes in Milestone 9.
@@ -168,6 +168,17 @@ Targeted references: [SQLAlchemy: database metadata](https://docs.sqlalchemy.org
 - Recovery evidence: the broken revision was preserved in `/tmp`, the versions directory was confirmed empty, and Alembic regenerated revision `3f7d9083d2ce`. The replacement contains only the expected Python migration, passes Python compilation, and `alembic history --verbose` recognizes it as `head` with parent `<base>`.
 - Migration application evidence: `alembic upgrade head` ran upgrade `<base> → 3f7d9083d2ce`. `alembic current` reports `3f7d9083d2ce (head)`. SQLAlchemy inspection now returns `['alembic_version', 'runs']`, confirming the version-tracking and application tables exist in PostgreSQL.
 - Lesson 3C completion: learner requested the checkpoint be marked complete after generation, review, debugging, application, revision verification, and table inspection. A later lesson will revisit schema/model consistency as a retention exercise.
+- Lesson 3D first observation: learner initially predicted the internal `id` would equal the external activity ID and that `created_at` would already contain the time. Runtime inspection clarified the distinction: `external_activity_id` and `started_at` were supplied by Python, while `id` and server-default `created_at` remained `None` before insertion.
+- Lesson 3D pending-state evidence: after `db.add(run)`, SQLAlchemy reported `(transient=False, pending=True, persistent=False)`. The database-assigned `id` and `created_at` remained `None`, demonstrating that adding tracks intended work without itself proving an insert or commit.
+- Lesson 3D flush evidence: after flushing, SQLAlchemy reported `(transient=False, pending=False, persistent=True)`. PostgreSQL returned internal ID `1` and a server-created timestamp. This proves the insert was processed inside the current transaction; durability remains unverified until commit.
+- Lesson 3D pre-commit visibility evidence: a second session queried the flushed run by primary key and returned `None`, then was closed. The insert remained isolated inside the original session's uncommitted transaction.
+- Lesson 3D teach-back: learner explained that creating another `SessionLocal()` produced a separate session and that the first session's model data was not yet stored as committed table data. Refined distinction: flush had inserted the row inside the first transaction and assigned ID `1`, but the row was neither visible to the second transaction nor durable until commit.
+- Lesson 3D commit evidence: after committing and closing the original session, a fresh session queried `external_activity_id == "lesson-3d-001"`; `saved_run is not None` returned `True`. This proves the row survived beyond the original session and transaction.
+- Lesson 3D stored-value evidence: the fresh session retrieved internal ID `1`, external ID `lesson-3d-001`, distance `5000`, duration `1800`, the supplied start time, and PostgreSQL's creation time. The fresh session was then closed.
+- Lesson 3D rollback evidence: after a second run was flushed and then rolled back, a fresh session queried its external activity ID. `missing_run is None` returned `True`, proving the uncommitted insert was canceled.
+- Lesson 3D remaining concept: learner described flush as pushing data to the table and rollback as canceling it, but initially described commit as preparation for flush. Clarification required: commit automatically flushes pending work when necessary and then makes the transaction permanent; rollback is the alternative that cancels uncommitted work after an error or deliberate decision.
+- Lesson 3D completion: learner compared commit to saving a document and explained that the rolled-back run did not persist. Final refinement: after flush, the insert was inside the open database transaction rather than still in the session's pending tray; `rollback()` canceled it, while `close()` only cleaned up the session afterward.
+- Debugging note: an assistant response accidentally duplicated several identifiers (`freshfresh_db`, `RRun`, and `printprint`), causing a first `NameError` and cascading undefined-variable errors. The learner recovered by querying with corrected names. Reinforced the practice of fixing the first error before interpreting later ones.
 
 ### Reusable Session Record
 
@@ -699,7 +710,7 @@ These code-level checks do not complete persistence. Use lessons 3A–3F near th
 
 - [x] PostgreSQL runs locally.
 - [x] Application connects to PostgreSQL.
-- [ ] Run records are persisted.
+- [x] A run record was persisted and retrieved manually through SQLAlchemy sessions. API persistence remains in Lesson 3E.
 - [ ] Database sessions are managed correctly.
 - [ ] Application handles database failures.
 - [ ] Data survives application restarts.
