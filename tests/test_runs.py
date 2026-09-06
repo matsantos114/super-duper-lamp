@@ -1,17 +1,14 @@
 from fastapi.testclient import TestClient
-from app.main import app
-
-client = TestClient(app)
 
 
-def test_create_run() -> None:
+def test_create_run(db_client: TestClient) -> None:
     payload = {
         "external_activity_id": "1234567890",
         "distance_meters": 1000,
         "started_at": "2026-01-01T00:00:00Z",
         "duration_seconds": 3600,
     }
-    response = client.post("/runs", json=payload)
+    response = db_client.post("/runs", json=payload)
 
     assert response.status_code == 201
 
@@ -23,14 +20,14 @@ def test_create_run() -> None:
     assert response_body["started_at"] == payload["started_at"]
 
 
-def test_create_run_rejects_zero_distance() -> None:
+def test_create_run_rejects_zero_distance(db_client: TestClient) -> None:
     payload = {
         "external_activity_id": "1234567890",
         "distance_meters": 0,
         "started_at": "2026-01-01T00:00:00Z",
         "duration_seconds": 3600,
     }
-    response = client.post("/runs", json=payload)
+    response = db_client.post("/runs", json=payload)
 
     assert response.status_code == 422
     error = response.json()["detail"][0]
