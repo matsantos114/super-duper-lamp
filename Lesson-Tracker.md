@@ -23,7 +23,7 @@ By the end of the project, you should be able to:
 
 # Current Learning Position — Reviewed Through September 6, 2026
 
-**Resume at Lesson 3C: explain the generated Alembic files, then connect Alembic to this project's settings and model metadata.**
+**Resume at Lesson 3D: use a SQLAlchemy session to insert, commit, and retrieve the first run outside the HTTP route.**
 
 The purpose remains learning backend engineering through work you can explain and repeat independently. The existing milestone catalog is a reference, not a requirement to complete one large feature every session. This review updates the curriculum; it does not implement the remaining application for you.
 
@@ -87,8 +87,8 @@ These are separate lessons, not a single implementation assignment.
 |---|---|---|
 | **3A — Explained** | Trace `RunCreate`, `Run`, `Base.metadata`, engine, and session to their roles. Inspect the model and predict whether POST writes anything. | Learner explained that POST currently returns the request without passing it to persistence; the model declares the intended table; a missing table causes a database error when SQL is sent. Retention check remains. |
 | **3B — Explained** | Establish a dedicated local learning database; verify the intended database and run read-only connectivity/schema queries. Learn connection URL components without exposing credentials. | Connectivity to `localhost:5432/running_app` was verified. `inspect(engine).get_table_names()` returned `[]`. Learner recognized that a separate schema-changing action is required and raised migration versus seeding for clarification. Retention check remains. |
-| **3C — Current / initialized** | Initialize Alembic; load model metadata; generate and review the initial migration; apply it to the learning database. | Alembic created `alembic.ini`, `alembic/env.py`, `alembic/script.py.mako`, `alembic/README`, and `alembic/versions/`. No migration revision or table was created. Next: explain the generated files, then configure the real URL and `Base.metadata`. |
-| 3D | Insert and retrieve one run using a session before connecting the HTTP route. Predict `add`, `flush`, `commit`, and `rollback`. | A fresh session sees a committed row; a rolled-back write is absent. Explain why flush is not durable commit. |
+| **3C — Complete** | Initialize Alembic; load model metadata; generate and review the initial migration; apply it to the learning database. | Revision `3f7d9083d2ce` was generated, reviewed, recovered after a syntax-error exercise, and applied. `alembic current` reports head; inspection returns `alembic_version` and `runs`. Learner explained first-revision, upgrade, and downgrade responsibilities. Retention check remains. |
+| **3D — Current** | Insert and retrieve one run using a session before connecting the HTTP route. Predict `add`, `flush`, `commit`, and `rollback`. | A fresh session sees a committed row; a rolled-back write is absent. Explain why flush is not durable commit. |
 | 3E | Connect POST to a request-scoped session and introduce a response schema that includes server-assigned fields. | An isolated PostgreSQL integration test checks 201, returned ID, and the actual stored row. Verify data survives an application restart. |
 | 3F | Trigger a duplicate-ID failure; define the initial API conflict policy and session cleanup. | Duplicate attempt leaves one row; a subsequent valid request succeeds; the error response does not expose internals. |
 
@@ -160,6 +160,14 @@ Targeted references: [SQLAlchemy: database metadata](https://docs.sqlalchemy.org
 - Current Alembic state: `alembic.ini` retains Alembic's harmless placeholder URL, while `env.py` overrides it at runtime with `settings.database_url`. `target_metadata` is still `None`. No revision has been generated or applied.
 - Alembic connection evidence: `.venv/bin/alembic current` reported `PostgresqlImpl` and transactional DDL, confirming that Alembic reached PostgreSQL using the configured runtime URL. It printed no revision because none has been applied.
 - Configuration still pending: the saved `alembic/env.py` continues to define `target_metadata = None`. Connectivity can succeed without model metadata, but autogeneration cannot compare the `Run` model until this becomes `Base.metadata`.
+- Configuration completion: after a line-by-line walkthrough, `target_metadata` was saved as `Base.metadata`. A second `.venv/bin/alembic current` connected successfully. The earlier “configuration still pending” entry records the intermediate state and is now resolved.
+- Migration generation evidence: `.venv/bin/alembic revision --autogenerate -m "create runs table"` detected the added `runs` table and created revision `f7558c5349f3`. The migration has been inspected but not applied. Existing tests still pass: 3 passed with the previously observed TestClient/httpx deprecation warning.
+- Migration review evidence: learner correctly distinguished `upgrade()` from `downgrade()`. Clarified that `down_revision = None` means there is no earlier migration; it does not depend on the number of tables involved.
+- Debugging evidence: `alembic upgrade head` and the following `alembic current` failed because terminal output had been pasted into the generated revision file. Python reported `SyntaxError` at line 1, where the shell prompt appeared. The failure happened while Alembic loaded the revision, so `upgrade()` did not execute and the database schema was not changed.
+- Recovery plan: because this revision was generated, reviewed, and never applied, remove only the corrupted revision file and regenerate it from unchanged model metadata. Inspect the regenerated file before retrying the upgrade.
+- Recovery evidence: the broken revision was preserved in `/tmp`, the versions directory was confirmed empty, and Alembic regenerated revision `3f7d9083d2ce`. The replacement contains only the expected Python migration, passes Python compilation, and `alembic history --verbose` recognizes it as `head` with parent `<base>`.
+- Migration application evidence: `alembic upgrade head` ran upgrade `<base> → 3f7d9083d2ce`. `alembic current` reports `3f7d9083d2ce (head)`. SQLAlchemy inspection now returns `['alembic_version', 'runs']`, confirming the version-tracking and application tables exist in PostgreSQL.
+- Lesson 3C completion: learner requested the checkpoint be marked complete after generation, review, debugging, application, revision verification, and table inspection. A later lesson will revisit schema/model consistency as a retention exercise.
 
 ### Reusable Session Record
 
@@ -689,8 +697,8 @@ These code-level checks do not complete persistence. Use lessons 3A–3F near th
 
 ## Completion Checklist
 
-- [ ] PostgreSQL runs locally.
-- [ ] Application connects to PostgreSQL.
+- [x] PostgreSQL runs locally.
+- [x] Application connects to PostgreSQL.
 - [ ] Run records are persisted.
 - [ ] Database sessions are managed correctly.
 - [ ] Application handles database failures.
@@ -763,21 +771,24 @@ Learn patterns such as:
 
 ## Completion Checklist
 
-- [ ] Alembic is configured.
-- [ ] Initial tables are created through a migration.
+- [x] Alembic is configured.
+- [x] Initial tables are created through a migration.
 - [ ] I created and applied a second migration.
-- [ ] I understand upgrade and downgrade commands.
+- [x] I understand the basic jobs of upgrade and downgrade commands.
 - [ ] I can explain a safe production migration.
 
 ## Lesson Notes
 
 ### What I learned
 
-- 
+- A SQLAlchemy model describes the intended table; it does not change PostgreSQL by itself.
+- Alembic compares model metadata with the real database and generates a migration proposal.
+- `upgrade()` moves the schema forward, while `downgrade()` describes how to reverse that change.
+- Applying the migration created both `runs` and Alembic's `alembic_version` tracking table.
 
 ### What confused me
 
-- 
+- The difference between the database URL and target metadata, and where each belongs in `alembic/env.py`. Resolved through a line-by-line walkthrough.
 
 ### Migration risks
 
