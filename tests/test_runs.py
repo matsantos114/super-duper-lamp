@@ -6,7 +6,6 @@ from sqlalchemy.orm import Session
 
 from app.models import Run
 
-
 def test_create_run(
     db_client: TestClient,
     db_session: Session,
@@ -30,9 +29,7 @@ def test_create_run(
     assert response_body["duration_seconds"] == payload["duration_seconds"]
     assert datetime.fromisoformat(
         response_body["started_at"]
-    ) == datetime.fromisoformat(
-        payload["started_at"]
-    )
+    ) == datetime.fromisoformat(payload["started_at"])
     saved_run = db_session.get(Run, response_body["id"])
 
     assert saved_run is not None
@@ -56,3 +53,35 @@ def test_create_run_rejects_zero_distance(
     assert error["loc"] == ["body", "distance_meters"]
     assert error["type"] == "greater_than"
 
+
+def test_create_run_rejects_duplicate_external_activity_id(
+    db_client: TestClient,
+    db_session: Session,
+) -> None:
+    payload = {
+        "external_activity_id": "duplicate-activity",
+        "distance_meters": 1000,
+        "started_at": "2026-01-01T00:00:00Z",
+        "duration_seconds": 3600,
+    }
+
+    first_response = db_client.post("/runs", json=payload)
+    second_response = db_client.post("/runs", json=payload)
+
+    assert first_response.status_code == 201
+    assert second_response.status_code == 409
+    assert second_response.json() == {
+        "detail": "Run already exists",
+    }
+    saved_run = db_session.get(
+        Run,
+        first_response.json()["id"],
+    )
+    assert saved_run is not None
+
+    next_payload = payload.copy()
+    next_payload["external_activity_id"] = "activity-after-duplicate"
+
+    next_response = db_client.post("/runs", json=next_payload)
+
+    assert next_response.status_code == 201
