@@ -1,7 +1,16 @@
 from fastapi.testclient import TestClient
 
+from datetime import datetime
 
-def test_create_run(db_client: TestClient) -> None:
+from sqlalchemy.orm import Session
+
+from app.models import Run
+
+
+def test_create_run(
+    db_client: TestClient,
+    db_session: Session,
+) -> None:
     payload = {
         "external_activity_id": "1234567890",
         "distance_meters": 1000,
@@ -13,14 +22,27 @@ def test_create_run(db_client: TestClient) -> None:
     assert response.status_code == 201
 
     response_body = response.json()
-
+    assert isinstance(response_body["id"], int)
+    assert response_body["created_at"] is not None
+    assert response_body["updated_at"] is not None
     assert response_body["external_activity_id"] == payload["external_activity_id"]
     assert response_body["distance_meters"] == payload["distance_meters"]
     assert response_body["duration_seconds"] == payload["duration_seconds"]
-    assert response_body["started_at"] == payload["started_at"]
+    assert datetime.fromisoformat(
+        response_body["started_at"]
+    ) == datetime.fromisoformat(
+        payload["started_at"]
+    )
+    saved_run = db_session.get(Run, response_body["id"])
+
+    assert saved_run is not None
+    assert saved_run.external_activity_id == payload["external_activity_id"]
+    assert saved_run.distance_meters == payload["distance_meters"]
 
 
-def test_create_run_rejects_zero_distance(db_client: TestClient) -> None:
+def test_create_run_rejects_zero_distance(
+    db_client: TestClient,
+) -> None:
     payload = {
         "external_activity_id": "1234567890",
         "distance_meters": 0,
