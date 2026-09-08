@@ -35,3 +35,22 @@ def create_run(
         ) from None
     db.refresh(db_run)
     return db_run
+
+
+@app.get(
+    "/runs/{run_id}",
+    response_model=RunRead,
+)
+def get_run(
+    run_id: int,
+    db: Session = Depends(get_db),
+) -> Run:
+    db_run = db.get(Run, run_id)
+
+    if db_run is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Run not found",
+        )
+
+    return db_run

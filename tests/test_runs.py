@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.models import Run
 
+
 def test_create_run(
     db_client: TestClient,
     db_session: Session,
@@ -85,3 +86,37 @@ def test_create_run_rejects_duplicate_external_activity_id(
     next_response = db_client.post("/runs", json=next_payload)
 
     assert next_response.status_code == 201
+
+
+def test_get_run_returns_existing_run(
+    db_client: TestClient,
+) -> None:
+    payload = {
+        "external_activity_id": "get-activity",
+        "distance_meters": 5000,
+        "started_at": "2026-01-01T00:00:00Z",
+        "duration_seconds": 1800,
+    }
+
+    create_response = db_client.post("/runs", json=payload)
+    assert create_response.status_code == 201
+
+    created_run = create_response.json()
+    response = db_client.get(f"/runs/{created_run['id']}")
+
+    assert response.status_code == 200
+
+    response_body = response.json()
+    assert response_body["id"] == created_run["id"]
+    assert response_body["external_activity_id"] == "get-activity"
+    assert response_body["distance_meters"] == 5000
+
+def test_get_run_returns_404_for_missing_id(
+    db_client: TestClient,
+) -> None:
+    response = db_client.get("/runs/999999999")
+
+    assert response.status_code == 404
+    assert response.json() == {
+        "detail": "Run not found",
+    }
